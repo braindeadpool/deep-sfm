@@ -1,0 +1,1 @@
+pandoc --filter pandoc-citeproc --bibliography=references.bib --variable classoption=twocolumn --variable papersize=a4pape -s report.md  --pdf-engine=xelatex -o report.pdf
