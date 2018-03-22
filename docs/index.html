@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Deep SfM</title>
+  <style type="text/css">
+      code{white-space: pre-wrap;}
+      span.smallcaps{font-variant: small-caps;}
+      span.underline{text-decoration: underline;}
+      div.column{display: inline-block; vertical-align: top; width: 50%;}
+  </style>
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header>
+<h1 class="title">Deep SfM</h1>
+</header>
+<h1 id="report-work-in-progress">Report (Work in Progress)</h1>
+<h2 id="abstract">Abstract</h2>
+<p>Structure from Motion is a key problem in 3D computer vision which deals with reconstructing the 3D structure of the world seen by a camera from its 2D images. Humans can naturally perceive and understand the 3D world from the its 2D projection on the retina. In fact, humans are good at estimating the 3D structure by looking at 2D images taken from cameras. However, this is a very hard problem for computers.</p>
+<p>In this work, we propose to explore how a generalizable SfM system can be built using deep neural networks by exploiting the visual priors learnt by them. We wish to build a model that predicts a 3D model of the world seen by a sequence of images and the camera poses that best explain the data.</p>
+<p><span class="citation" data-cites="kendall2015posenet">Kendall, Grimes, and Cipolla (2015)</span> and derived work <span class="citation" data-cites="kendall2017geometric">Kendall and Cipolla (n.d.)</span> <span class="citation" data-cites="laskar2017camera">Laskar et al. (2017)</span> predict the camera pose from a single image after learning a map-like representation from training images. However, these approaches require ground truth poses and/or 3D structure.</p>
+<h2 id="review-of-sfm">Review of SfM</h2>
+<p>Common SfM pipelines can be categorized in two:</p>
+<ol type="1">
+<li>Feature based approaches -</li>
+</ol>
+<ul>
+<li>Extraction of keypoints and features across images and matching them to obtain correspondences</li>
+<li>Estimating pairwise relative camera motion from the correspondences</li>
+<li>Recovering 3D structure from the camera motion and features</li>
+</ul>
+<ol start="2" type="1">
+<li>Direct approaches that directly solve for structure and camera motion from tha images.</li>
+</ol>
+<p>Feature based methods are very sensitive to outliers and noise in feature matching while direct approaches are computationally very expensive.</p>
+<p>An excellent survey of the SfM is presented in <span class="citation" data-cites="ozyecsil2017survey">Özyeşil et al. (2017)</span> .</p>
+<h3 id="key-challenges">Key challenges</h3>
+<h4 id="feature-matching">Feature matching</h4>
+<p>Obtaining dense correspondences by matching features is usually the first step in a standard SfM pipeline. However, this usually fails when there are images with low textures, complex geometry or occlusions. There has been some success in alleviating this with deep learning <span class="citation" data-cites="han2015matchnet">(Han et al. 2015)</span></p>
+<h2 id="goals">Goals</h2>
+<p>Given only a sequence of images, how can we reconstruct a 3D model of the scene seen by the images and the relative camera poses that jointly explain the model and images. We focus on the following key aspects of the problem:</p>
+<ul>
+<li>General solution: The model should not learn a map from training images but instead learns to associate input images visually along with priors to build a 3D model. It is crucial that given an unseen test sequence of images from a scene different than the training set, the model should be able to predict a plausible explanation of the 3D structure and poses.</li>
+<li>Interpretability of the model: How can we translate the underlying representation learnt by the model to meaningful formats (depth, point cloud representation, object motion, etc)</li>
+<li>Geometry aware: The model must learn to exploit geometric structure in the images and allow supervision from scene-geometry based signals (ex, re-projection error).</li>
+<li>Scalable: The approach must be indepent of the number of images and be able to globally reason from all the input and not rely on a set of local solutions followed by global optimization as post-processing.</li>
+</ul>
+<h2 id="problem-formulation">Problem formulation</h2>
+<p>Given a sequence of images <span class="math inline">{<em>I</em><sub>1</sub>, <em>I</em><sub>2</sub>, ..., <em>I</em><sub><em>n</em></sub>}</span> as the input, extract the following output:</p>
+<ul>
+<li>3D scene structure defined by <span class="math inline"><em>P</em> = {<em>p</em><sub>1</sub>, <em>p</em><sub>2</sub>, ..., <em>p</em><sub><em>m</em></sub>}</span> where <span class="math inline"><em>p</em><sub><em>i</em></sub> ∈ ℛ<sup>3</sup> × ℛ<sup>3</sup> × ℝ<sup>3</sup></span> is a 3D point-sample storing a position, normal and color values, respectively.</li>
+<li>Camera poses for each input image <span class="math inline">{<em>c</em><sub>1</sub>, <em>c</em><sub>2</sub>, ..., <em>c</em><sub><em>n</em></sub>}</span> where <span class="math inline"><em>c</em><sub><em>i</em></sub> ∈ ℛ<sup>3</sup> × ℛ<sup>4</sup></span> is the 3D camera position and 3D camera rotation in quaternion representation of image <span class="math inline"><em>I</em><sub><em>i</em></sub></span>.</li>
+</ul>
+<p>However, the above formulation can be further simplified by noting that each 3D point can be mapped to one or more 2D pixels in the input images (we focus only on the geometry of the scene and not the illumination effects in the scene, ie, we ignore the rendering aspects of the problem). Let us explore different routes to simplify the redundancy in the pointcloud output</p>
+<h2 id="mathematical-perspective">Mathematical perspective</h2>
+<h3 id="is-the-mapping-injective-from-the-input-space-to-output-sp-ace">Is the mapping injective from the input space to output sp ace?</h3>
+<p>Given an input, is the output a distinct one? The above simple formulation does not account for unique output (SfM ambiguity problem). Here’s an example: Let us assume we a 3D point cloud <span class="math inline"><em>P</em></span> with <span class="math inline"><em>m</em></span> 3D points. We also have two camera poses <span class="math inline"><em>C</em> = {<em>C</em><sub>1</sub>, <em>C</em><sub>2</sub>}</span>. Let <span class="math inline"><em>I</em><sub>1</sub>, <em>I</em><sub>2</sub></span> be the images projected on the camera at <span class="math inline"><em>C</em><sub>1</sub></span> and <span class="math inline"><em>C</em><sub>2</sub></span> respectively. So if we were to solve for the camera poses and point cloud with <span class="math inline"><em>I</em><sub>1</sub>, <em>I</em><sub>2</sub></span> as our input to the model, <span class="math inline"><em>P</em>, <em>c</em></span> is a valid solution. However, this solution is not unique. If we translate all the points by a vector <span class="math inline"><em>x</em></span> to get a new point cloud <span class="math inline"><em>P</em>′ = {<em>p</em><sub><em>i</em></sub><sup>′</sup> = <em>p</em><sub><em>i</em></sub> + <em>x</em>∀<em>p</em><sub><em>i</em></sub> ∈ <em>P</em>}</span> and similarly, translate all the camera poses in <span class="math inline"><em>C</em></span> by <span class="math inline"><em>x</em></span>, it would still be a valid solution. In fact, it can be shown that if we transform the scene by any non-singular <span class="math inline">4 × 4</span> matrix <span class="math inline"><em>T</em></span>, then we can apply the same transformation to the camera poses to obtain the same camera-space projections (the images <span class="math inline"><em>I</em></span>)[ <a href="#proof-of-sfm-ambiguity">Refer Appendix for proof</a>]</p>
+<p>Let us now update the problem to remove this SfM ambiguity.</p>
+<h2 id="engineering-perspective">Engineering perspective</h2>
+<h2 id="appendix">Appendix</h2>
+<h3 id="proof-of-sfm-ambiguity">Proof of SfM ambiguity</h3>
+<p>Given a group of <span class="math inline"><em>m</em></span> 3D points <span class="math inline"><em>P</em> = {<em>p</em><sub>1</sub>, <em>p</em><sub>2</sub>, ..., <em>p</em><sub><em>m</em></sub>}</span> viewed by <span class="math inline"><em>n</em></span> cameras with camera poses <span class="math inline"><em>C</em> = {<em>C</em><sub>1</sub>, <em>C</em><sub>2</sub>, ..., <em>C</em><sub><em>n</em></sub>}</span>, then the homogeneous projection coordinate of the <span class="math inline"><em>j</em><sup><em>t</em><em>h</em></sup></span> point onto the <span class="math inline"><em>k</em><sup><em>t</em><em>h</em></sup></span> camera is :</p>
+
+<p>Thus any non-singular matrix <span class="math inline"><em>T</em></span> can be applied to the scene and the camera poses to get the same projections. Note: camera pose matrix is the inverse of the extrinsic matrix.</p>
+<h2 id="references">References</h2>
+<h2 id="related-work">Related Work</h2>
+<p><span class="citation" data-cites="46199">Fragkiadaki et al. (2017)</span> propose a CNN based architecture for motion estimation in videos that decomposes frame-to-frame pixel motion in terms of scene and object, depth, camera motion and 3D object rotations and translations. They utilize geometric information to propose a self-supervised learning process. However the architecture only relies on pairs of frames to learn 3D structure and a separate processing step is required to obtain a globally consistent structure from all the predictions on a sequence of images.</p>
+<div id="refs" class="references">
+<div id="ref-46199">
+<p>Fragkiadaki, Aikaterini, Bryan Seybold, Rahul Sukthankar, Sudheendra Vijayanarasimhan, and Susanna Ricco. 2017. “Self-Supervised Learning of Structure and Motion from Video.” In <em>Arxiv (2017)</em>. <a href="https://arxiv.org/abs/1704.07804" class="uri">https://arxiv.org/abs/1704.07804</a>.</p>
+</div>
+<div id="ref-han2015matchnet">
+<p>Han, Xufeng, Thomas Leung, Yangqing Jia, Rahul Sukthankar, and Alexander C Berg. 2015. “Matchnet: Unifying Feature and Metric Learning for Patch-Based Matching.” In <em>Computer Vision and Pattern Recognition (Cvpr), 2015 Ieee Conference on</em>, 3279–86. IEEE.</p>
+</div>
+<div id="ref-kendall2017geometric">
+<p>Kendall, Alex, and Roberto Cipolla. n.d. “Geometric Loss Functions for Camera Pose Regression with Deep Learning.” In.</p>
+</div>
+<div id="ref-kendall2015posenet">
+<p>Kendall, Alex, Matthew Grimes, and Roberto Cipolla. 2015. “Posenet: A Convolutional Network for Real-Time 6-Dof Camera Relocalization.” In <em>Computer Vision (Iccv), 2015 Ieee International Conference on</em>, 2938–46. IEEE.</p>
+</div>
+<div id="ref-laskar2017camera">
+<p>Laskar, Zakaria, Iaroslav Melekhov, Surya Kalia, and Juho Kannala. 2017. “Camera Relocalization by Computing Pairwise Relative Poses Using Convolutional Neural Network.” <em>arXiv Preprint arXiv:1707.09733</em>.</p>
+</div>
+<div id="ref-ozyecsil2017survey">
+<p>Özyeşil, Onur, Vladislav Voroninski, Ronen Basri, and Amit Singer. 2017. “A Survey of Structure from Motion*.” <em>Acta Numerica</em> 26. Cambridge University Press:305–64.</p>
+</div>
+</div>
+</body>
+</html>
