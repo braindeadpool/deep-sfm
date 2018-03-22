@@ -1,4 +1,5 @@
 # deep-sfm
 
-For project report and inner workings, refer to the project website:
-[http://mssuraj.com/deep-sfm/](http://mssuraj.com/deep-sfm/)
+## Project report and inner workings -
+[HTML version](http://mssuraj.com/deep-sfm/)
+[PDF version](https://github.com/braindeadpool/deep-sfm/blob/master/docs/report.pdf)
