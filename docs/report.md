@@ -34,15 +34,24 @@ An excellent survey of the SfM is presented in @ozyecsil2017survey .
 #### Feature matching
 Obtaining dense correspondences by matching features is usually the first step in a standard SfM pipeline. However, this usually fails when there are images with low textures, complex geometry or occlusions. There has been some success in alleviating this with deep learning [@han2015matchnet]
 
+#### Globally inconsistent solution
+Most approaches rely on solving smaller tractable sub-problems like pair-wise frame pose and structure estimation and then optionally optimize them globally. Whilst obtaining local consistency gives good initial estimates for the global optimization, it is still an intractable problem which is solved to certain threshold.
+
+#### Lack of semantic priors
+Given two images seeing the same structure from two different viewpoints, humans can easily estimate their relative camera pose and a general 3D structure of the scene. This is due to the prior knowledge we possess from our experiences seeing the world.
+Deep learning based approaches have shown tremendous progress in being able to learn a similar prior despite the need to have lots of data, finely constructed architectures and hand-tuned training regimens.
 
 ## Goals
 Given only a sequence of images, how can we reconstruct a 3D model of the scene seen by the images and the relative camera poses that jointly explain the model and images.
 We focus on the following key aspects of the problem:
 
 * General solution: The model should not learn a map from training images but instead learns to associate input images visually along with priors to build a 3D model. It is crucial that given an unseen test sequence of images from a scene different than the training set, the model should be able to predict a plausible explanation of the 3D structure and poses.
-* Interpretability of the model: How can we translate the underlying representation learnt by the model to meaningful formats (depth, point cloud representation, object motion, etc)
+* Interpretable of the model: How can we translate the underlying representation learnt by the model to meaningful formats (depth, point cloud representation, object motion, etc)
 * Geometry aware: The model must learn to exploit geometric structure in the images and allow supervision from scene-geometry based signals (ex, re-projection error).
-* Scalable: The approach must be indepent of the number of images and be able to globally reason from all the input and not rely on a set of local solutions followed by global optimization as post-processing.
+* Scalable: The approach must be independent of the number of images and be able to globally reason from all the input and not rely on a set of local solutions followed by global optimization as post-processing.
+
+## Why deep learning?
+Deep neural networks can potentially leverage visual priors and help combat deficiencies in existing pipelines. To that end, our model should be able to learn how 2D images relate to the scene structure and changes in viewpoint affect the projected image. Being able to learn such strong priors should allow it to estimate viewpoint and 3D structure from 2D images alone.
 
 ## Problem formulation
 Given a sequence of images $\{I_1, I_2, ..., I_n\}$ as the input, extract the following output:
